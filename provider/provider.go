@@ -1,0 +1,43 @@
+package provider
+
+import (
+	"errors"
+	"fmt"
+	"net/url"
+
+	dns "github.com/Edge-Center/edgecenter-dns-sdk-go"
+	log "github.com/sirupsen/logrus"
+	"sigs.k8s.io/external-dns/endpoint"
+	"sigs.k8s.io/external-dns/provider"
+)
+
+const (
+	ProviderName = "edgecenter"
+	EnvApiUrl    = "EC_API_URL"
+	EnvApiToken  = "EC_API_TOKEN"
+)
+
+type DnsProvider struct {
+	provider.BaseProvider
+	client *dns.Client
+}
+
+func NewProvider(domainFilter endpoint.DomainFilter, apiUrl, apiToken string) (p *DnsProvider, err error) {
+	log.Infof("init %s provider with filters=%+v", ProviderName, domainFilter.Filters)
+
+	if apiToken == "" {
+		return nil, errors.New("empty API token, check env var " + EnvApiToken)
+	}
+
+	client := dns.NewClient(dns.PermanentAPIKeyAuth(apiToken))
+	if apiUrl != "" {
+		client.BaseURL, err = url.Parse(apiUrl)
+		if err != nil {
+			return nil, fmt.Errorf("can't parse API URL '%s'", apiUrl)
+		}
+	}
+
+	return &DnsProvider{
+		client: client,
+	}, nil
+}
