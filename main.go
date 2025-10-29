@@ -1,11 +1,12 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"os"
 
+	"github.com/Edge-Center/external-dns-ec-webhook/log"
 	"github.com/Edge-Center/external-dns-ec-webhook/provider"
-	log "github.com/sirupsen/logrus"
 	"sigs.k8s.io/external-dns/endpoint"
 )
 
@@ -30,24 +31,18 @@ Version %s
 
 `
 
-const (
-	logKeyError = "error"
-)
-
 func main() {
 	if Version == "" {
 		Version = "unknown"
 	}
 	fmt.Printf(banner, Version)
 
-	log.SetLevel(log.DebugLevel)
-
 	apiUrl := os.Getenv(provider.ENV_API_URL)
 	apiToken := os.Getenv(provider.ENV_API_TOKEN)
 
 	provider, err := provider.NewProvider(endpoint.DomainFilter{}, apiUrl, apiToken)
 	if err != nil {
-		log.Fatalf("failed to init provider: %s", err)
+		log.Logger(context.Background()).Fatalf("failed to init provider: %s", err)
 	}
 	StartServer(provider)
 }

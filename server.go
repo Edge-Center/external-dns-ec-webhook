@@ -5,9 +5,10 @@ import (
 	"fmt"
 	"net/http"
 
+	"github.com/Edge-Center/external-dns-ec-webhook/log"
 	"github.com/Edge-Center/external-dns-ec-webhook/provider"
 	"github.com/go-chi/chi/v5"
-	log "github.com/sirupsen/logrus"
+	"github.com/sirupsen/logrus"
 )
 
 const (
@@ -34,20 +35,17 @@ func InitEndpoints() {
 		w.WriteHeader(http.StatusOK)
 	})
 	r.Get("/", func(w http.ResponseWriter, r *http.Request) {
+		r.WithContext(log.Trace(r.Context()))
 		logWithReqInfo(r).Debug("GET /")
 
 		err := checkHeaders(w, r)
 		if err != nil {
-			logWithReqInfo(r).WithField(logKeyError, err).Error("failed header check")
+			logWithReqInfo(r).WithField(log.ErrorKey, err).Error("failed header check")
 		}
 	})
 	r.Get("/records", func(w http.ResponseWriter, r *http.Request) {})
 	r.Post("/records", func(w http.ResponseWriter, r *http.Request) {})
 	r.Post("/adjust_endpoints", func(w http.ResponseWriter, r *http.Request) {})
-}
-
-func logWithReqInfo(r *http.Request) *log.Entry {
-	return log.WithFields(log.Fields{"method": r.Method, "url": r.URL.Path})
 }
 
 func checkHeaders(w http.ResponseWriter, r *http.Request) error {
@@ -69,7 +67,7 @@ func checkHeaders(w http.ResponseWriter, r *http.Request) error {
 			err = errors.New("'Accept' header is required")
 		}
 		if _, er := fmt.Fprint(w, err); err != nil {
-			logWithReqInfo(r).WithField(logKeyError, er).Fatal("got error on writing error message to response writer")
+			logWithReqInfo(r).WithField(log.ErrorKey, er).Fatal("got error on writing error message to response writer")
 		}
 		return err
 	}
@@ -85,10 +83,15 @@ func checkHeaders(w http.ResponseWriter, r *http.Request) error {
 			err = errors.New("valid media type is required in 'Accept' header")
 		}
 		if _, er := fmt.Fprint(w, err); err != nil {
-			logWithReqInfo(r).WithField(logKeyError, er).Fatal("got error on writing error message to response writer")
+			logWithReqInfo(r).WithField(log.ErrorKey, er).Fatal("got error on writing error message to response writer")
 		}
 		return err
 	}
 
 	return nil
+}
+
+// logWithReqInfo uses traced(!) ctx and info from request to log valuable debug fields
+func logWithReqInfo(r *http.Request) *logrus.Entry {
+	return log.Logger(r.Context()).WithFields(logrus.Fields{"method": r.Method, "url": r.URL.Path})
 }
