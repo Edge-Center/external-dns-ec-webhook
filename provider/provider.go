@@ -5,9 +5,11 @@ import (
 	"errors"
 	"fmt"
 	"net/url"
+	"strings"
 
 	dns "github.com/Edge-Center/edgecenter-dns-sdk-go"
 	"github.com/Edge-Center/external-dns-ec-webhook/log"
+	"golang.org/x/sync/errgroup"
 	"sigs.k8s.io/external-dns/endpoint"
 	"sigs.k8s.io/external-dns/plan"
 	"sigs.k8s.io/external-dns/provider"
@@ -17,14 +19,16 @@ const (
 	ProviderName  = "edgecenter"
 	ENV_API_URL   = "EC_API_URL"
 	ENV_API_TOKEN = "EC_API_TOKEN"
+	ENV_DRY_RUN   = "EC_DRY_RUN"
 )
 
 type DnsProvider struct {
 	provider.BaseProvider
 	client *dns.Client
+	dryRun bool
 }
 
-func NewProvider(domainFilter endpoint.DomainFilter, apiUrl, apiToken string) (p *DnsProvider, err error) {
+func NewProvider(domainFilter endpoint.DomainFilter, apiUrl, apiToken string, dryRun bool) (p *DnsProvider, err error) {
 	log.Logger(context.Background()).Infof("init %s provider with filters=%+v", ProviderName, domainFilter.Filters)
 
 	if apiToken == "" {
@@ -41,6 +45,7 @@ func NewProvider(domainFilter endpoint.DomainFilter, apiUrl, apiToken string) (p
 
 	return &DnsProvider{
 		client: client,
+		dryRun: dryRun,
 	}, nil
 }
 
@@ -58,7 +63,7 @@ func (p *DnsProvider) Records(ctx context.Context) ([]*endpoint.Endpoint, error)
 		zone.Names = filters
 	})
 	if err != nil {
-		return nil, fmt.Errorf("failed to get zones with records: %s")
+		return nil, fmt.Errorf("failed to get zones with records: %s", err)
 	}
 
 	recordCountByZone := make(map[string]int)
@@ -84,6 +89,21 @@ func (p *DnsProvider) Records(ctx context.Context) ([]*endpoint.Endpoint, error)
 
 // todo
 func (p *DnsProvider) ApplyChanges(ctx context.Context, changes *plan.Changes) error {
+	if !changes.HasChanges() {
+		return nil
+	}
+
+	logger := log.Logger(ctx)
+	logger.Info("starting to apply changes")
+	defer logger.Info("finished applying changes")
+
+	getZone := p.zoneFromDNSNameGetter(ctx)
+	appliedChanges := struct {
+		created int
+		updated int
+		deleted int
+	}{}
+
 	return nil
 }
 
@@ -105,7 +125,109 @@ func (p *DnsProvider) GetDomainFilter(ctx context.Context) *endpoint.DomainFilte
 	return endpoint.NewDomainFilter(domains)
 }
 
-// todo
+// todo figure out wtf is this func
 func (p *DnsProvider) AdjustEndpoints(endpoints []*endpoint.Endpoint) ([]*endpoint.Endpoint, error) {
-	return nil, nil
+	adjusted := make([]*endpoint.Endpoint, 0, len(endpoints))
+	for _, e := range endpoints {
+		if e.RecordType != "TXT" {
+			adjusted = append(adjusted, e)
+		}
+	}
+	return adjusted, nil
+}
+
+func (p *DnsProvider) zoneFromDNSNameGetter(ctx context.Context) func(name string) (zone string) {
+	existingZones := p.GetDomainFilter(ctx)
+	search := make(map[string]string)
+	for _, zone := range existingZones.Filters {
+		search[zone] = strings.Trim(zone, ".")
+	}
+	return func(name string) (zone string) {
+		dnsName := strings.Trim(name, ".")
+		if result, ok := search[dnsName]; ok {
+			return result
+		}
+		i, j := 0, 0
+		for j != -1 { // check if there was a dot
+			if result, ok := search[dnsName[i:]]; ok { // check substring to the right of it
+				return result
+			}
+			j = strings.Index(dnsName[i:], ".") // look for the next dot
+			i = i + j + 1                       // calculate index of the next substr beginning
+		}
+		return ""
+	}
+}
+
+func (p *DnsProvider) handleUpdateChanges(ctx context.Context, changes *plan.Changes, getZone func(name string) string) (int, []string) {
+	logger := log.Logger(ctx)
+	logger.Info("start applying Update changes")
+	defer logger.Info("finish  applying Update changes")
+
+	var deleted int
+
+	for _, e := range changes.UpdateNew {
+		zone := getZone(e.DNSName)
+		if zone == "" {
+			logger.WithField(log.DNSNameKey, e.DNSName).Warning("update skipped - no such zone")
+			continue
+		}
+
+		rrsetsToDelete := findRecordsToDelete(e, changes.UpdateOld)
+		if len(rrsetsToDelete) == 0 {
+			continue
+		}
+
+		for _, content := range rrsetsToDelete {
+			msg := fmt.Sprintf("remove %s %s %s", e.DNSName, e.RecordType, content)
+			if p.dryRun {
+				logger.WithField(log.DryRunKey, true).Info(msg)
+				continue
+			}
+			logger.Debug(msg)
+		}
+
+		gr, _ := errgroup.WithContext(ctx)
+		gr.Go(func() error {
+			err := p.client.DeleteRRSetRecord(ctx, zone, e.DNSName, e.RecordType, rrsetsToDelete...)
+			if err != nil {
+				err = fmt.Errorf("failed to delete rrset records: %s", err)
+			}
+			logger.Error(err)
+			return err
+		})
+	}
+
+	return nil
+}
+
+func findRecordsToDelete(update *endpoint.Endpoint, existingEndpoints []*endpoint.Endpoint) endpoint.Targets {
+	var existing *endpoint.Endpoint
+	for _, ex := range existingEndpoints {
+		if ex.RecordType != update.RecordType || ex.DNSName != update.DNSName {
+			continue
+		}
+		existing = ex
+	}
+	if existing == nil {
+		return nil
+	}
+	return findDiff(existing, update)
+}
+
+// findDiff returns RRSets in target that don't exist in source
+func findDiff(target, source *endpoint.Endpoint) endpoint.Targets {
+	res := endpoint.Targets{}
+	for _, t := range target.Targets {
+		exists := false
+		for _, st := range source.Targets {
+			if st == t {
+				exists = true
+				break
+			}
+		}
+		if !exists {
+			res = append(res, t)
+		}
+	}
 }

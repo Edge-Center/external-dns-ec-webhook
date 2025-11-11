@@ -10,6 +10,8 @@ import (
 const (
 	TraceIDKey = "trace_id"
 	ErrorKey   = "error"
+	DNSNameKey = "dns_name"
+	DryRunKey  = "dry_run"
 )
 
 func init() {

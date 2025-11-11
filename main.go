@@ -39,8 +39,9 @@ func main() {
 
 	apiUrl := os.Getenv(provider.ENV_API_URL)
 	apiToken := os.Getenv(provider.ENV_API_TOKEN)
+	dryRun := os.Getenv(provider.ENV_DRY_RUN) == "true"
 
-	provider, err := provider.NewProvider(endpoint.DomainFilter{}, apiUrl, apiToken)
+	provider, err := provider.NewProvider(endpoint.DomainFilter{}, apiUrl, apiToken, dryRun)
 	if err != nil {
 		log.Logger(context.Background()).Fatalf("failed to init provider: %s", err)
 	}
