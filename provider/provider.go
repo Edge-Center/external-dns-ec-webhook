@@ -97,12 +97,25 @@ func (p *DnsProvider) ApplyChanges(ctx context.Context, changes *plan.Changes) e
 	logger.Info("starting to apply changes")
 	defer logger.Info("finished applying changes")
 
-	getZone := p.zoneFromDNSNameGetter(ctx)
+	getZoneFunc := p.zoneFromDNSNameGetter(ctx)
 	appliedChanges := struct {
 		created int
 		updated int
 		deleted int
 	}{}
+
+	var updateGr *errgroup.Group
+	appliedChanges.updated, updateGr = p.handleUpdateChanges(ctx, changes, getZoneFunc)
+
+	var deleteGr *errgroup.Group
+	appliedChanges.deleted, deleteGr = p.handleDeleteChanges(ctx, changes, getZoneFunc)
+
+	var createGr *errgroup.Group
+	appliedChanges.created, createGr = p.handleCreateChanges(ctx, changes, getZoneFunc)
+
+	_ = updateGr.Wait()
+	_ = deleteGr.Wait()
+	_ = createGr.Wait()
 
 	return nil
 }
@@ -177,7 +190,7 @@ func (p *DnsProvider) handleUpdateChanges(ctx context.Context, changes *plan.Cha
 
 		rrsetsToDelete := findRecordsToDelete(e, changes.UpdateOld)
 		for _, content := range rrsetsToDelete {
-			msg := fmt.Sprintf("remove %s %s %s", e.DNSName, e.RecordType, content)
+			msg := fmt.Sprintf("for update-delete %s %s %s", e.DNSName, e.RecordType, content)
 			if p.dryRun {
 				logger.WithField(log.DryRunKey, true).Info(msg)
 				continue
@@ -189,7 +202,7 @@ func (p *DnsProvider) handleUpdateChanges(ctx context.Context, changes *plan.Cha
 		recordValues := make([]dns.ResourceRecord, 0, len(rrsetsToCreate))
 
 		for _, content := range rrsetsToCreate {
-			msg := fmt.Sprintf("add %s %s %s", e.DNSName, e.RecordType, content)
+			msg := fmt.Sprintf("for update-add %s %s %s", e.DNSName, e.RecordType, content)
 			if p.dryRun {
 				logger.WithField(log.DryRunKey, true).Info(msg)
 				continue
@@ -224,6 +237,92 @@ func (p *DnsProvider) handleUpdateChanges(ctx context.Context, changes *plan.Cha
 	}
 
 	return forUpdate, gr
+}
+
+func (p *DnsProvider) handleDeleteChanges(ctx context.Context, changes *plan.Changes, getZone func(name string) string) (int, *errgroup.Group) {
+	logger := log.Logger(ctx)
+	logger.Info("start applying Delete changes")
+	defer logger.Info("finish applying Delete changes")
+
+	var forDelete int
+	gr, _ := errgroup.WithContext(ctx)
+
+	for _, e := range changes.Delete {
+		zone := getZone(e.DNSName)
+		if zone == "" {
+			logger.WithField(log.DNSNameKey, e.DNSName).Warning("delete skipped - no such zone")
+			continue
+		}
+
+		forDelete += len(e.Targets)
+
+		for _, content := range e.Targets {
+			msg := fmt.Sprintf("for delete %s %s %s", e.DNSName, e.RecordType, content)
+			if p.dryRun {
+				logger.WithField(log.DryRunKey, true).Info(msg)
+				continue
+			}
+			logger.Debug(msg)
+		}
+
+		if len(e.Targets) > 0 {
+			gr.Go(func() error {
+				err := p.client.DeleteRRSetRecord(ctx, zone, e.DNSName, e.RecordType, e.Targets...)
+				if err != nil {
+					err = fmt.Errorf("failed to delete rrset: %s", err)
+				}
+				logger.Error(err)
+				return err
+			})
+		}
+	}
+
+	return forDelete, gr
+}
+
+func (p *DnsProvider) handleCreateChanges(ctx context.Context, changes *plan.Changes, getZone func(name string) string) (int, *errgroup.Group) {
+	logger := log.Logger(ctx)
+	logger.Info("start applying Create changes")
+	defer logger.Info("finish applying Create changes")
+
+	var forCreate int
+	gr, _ := errgroup.WithContext(ctx)
+
+	for _, e := range changes.Create {
+		zone := getZone(e.DNSName)
+		if zone == "" {
+			logger.WithField(log.DNSNameKey, e.DNSName).Warning("delete skipped - no such zone")
+			continue
+		}
+
+		forCreate += len(e.Targets)
+
+		recordValues := make([]dns.ResourceRecord, 0)
+		for _, content := range e.Targets {
+			msg := fmt.Sprintf("for create %s %s %s", e.DNSName, e.RecordType, content)
+			if p.dryRun {
+				logger.WithField(log.DryRunKey, true).Info(msg)
+				continue
+			}
+			logger.Debug(msg)
+			rr := dns.ResourceRecord{Enabled: true}
+			rr.SetContent(e.RecordType, content)
+			recordValues = append(recordValues, rr)
+		}
+
+		if len(e.Targets) > 0 {
+			gr.Go(func() error {
+				err := p.client.AddZoneRRSet(ctx, zone, e.DNSName, e.RecordType, recordValues, int(e.RecordTTL))
+				if err != nil {
+					err = fmt.Errorf("failed to create rrset: %s", err)
+				}
+				logger.Error(err)
+				return err
+			})
+		}
+	}
+
+	return forCreate, gr
 }
 
 func findRecordsToDelete(update *endpoint.Endpoint, existingEndpoints []*endpoint.Endpoint) endpoint.Targets {
