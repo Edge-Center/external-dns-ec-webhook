@@ -7,7 +7,6 @@ import (
 
 	"github.com/Edge-Center/external-dns-ec-webhook/log"
 	"github.com/Edge-Center/external-dns-ec-webhook/provider"
-	"sigs.k8s.io/external-dns/endpoint"
 )
 
 // Version is assigned during build stage and created from git tag
@@ -44,9 +43,10 @@ func main() {
 	dryRun := os.Getenv(provider.ENV_DRY_RUN) == "true"
 	addr := os.Getenv(ENV_SERVER_ADDR)
 
-	provider, err := provider.NewProvider(endpoint.DomainFilter{}, apiUrl, apiToken, dryRun)
+	provider, err := provider.NewProvider(apiUrl, apiToken, dryRun)
 	if err != nil {
 		log.Logger(context.Background()).Fatalf("failed to init provider: %s", err)
 	}
+
 	StartServer(provider, addr)
 }

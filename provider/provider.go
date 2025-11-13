@@ -28,8 +28,8 @@ type DnsProvider struct {
 	dryRun bool
 }
 
-func NewProvider(domainFilter endpoint.DomainFilter, apiUrl, apiToken string, dryRun bool) (p *DnsProvider, err error) {
-	log.Logger(context.Background()).Infof("init %s provider with filters=%+v", ProviderName, domainFilter.Filters)
+func NewProvider(apiUrl, apiToken string, dryRun bool) (p *DnsProvider, err error) {
+	log.Logger(context.Background()).Infof("init %s provider", ProviderName)
 
 	if apiToken == "" {
 		return nil, errors.New("empty API token, check env var " + ENV_API_TOKEN)
