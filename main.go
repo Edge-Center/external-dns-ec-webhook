@@ -31,6 +31,8 @@ Version %s
 
 `
 
+const ENV_SERVER_ADDR = "EC_WEBHOOK_SERVER_ADDR"
+
 func main() {
 	if Version == "" {
 		Version = "unknown"
@@ -40,10 +42,11 @@ func main() {
 	apiUrl := os.Getenv(provider.ENV_API_URL)
 	apiToken := os.Getenv(provider.ENV_API_TOKEN)
 	dryRun := os.Getenv(provider.ENV_DRY_RUN) == "true"
+	addr := os.Getenv(ENV_SERVER_ADDR)
 
 	provider, err := provider.NewProvider(endpoint.DomainFilter{}, apiUrl, apiToken, dryRun)
 	if err != nil {
 		log.Logger(context.Background()).Fatalf("failed to init provider: %s", err)
 	}
-	StartServer(provider)
+	StartServer(provider, addr)
 }
