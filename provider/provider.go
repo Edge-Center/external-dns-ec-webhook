@@ -113,10 +113,33 @@ func (p *DnsProvider) ApplyChanges(ctx context.Context, changes *plan.Changes) e
 	var createGr *errgroup.Group
 	appliedChanges.created, createGr = p.handleCreateChanges(ctx, changes, getZoneFunc)
 
-	_ = updateGr.Wait()
-	_ = deleteGr.Wait()
-	_ = createGr.Wait()
+	logger = logger.WithField("to_apply", appliedChanges)
 
+	errs := make([]error, 0, 3)
+	err := updateGr.Wait()
+	if err != nil {
+		logger.WithField(log.ErrorKey, err).Error("failed to commit update changes")
+		errs = append(errs, err)
+	} else {
+		logger.Info("update changes commited")
+	}
+	err = deleteGr.Wait()
+	if err != nil {
+		logger.WithField(log.ErrorKey, err).Error("failed to commit delete changes")
+		errs = append(errs, err)
+	} else {
+		logger.Info("delete changes commited")
+	}
+	err = createGr.Wait()
+	if err != nil {
+		logger.WithField(log.ErrorKey, err).Error("failed to commit create changes")
+		errs = append(errs, err)
+	} else {
+		logger.Info("create changes commited")
+	}
+	if len(errs) > 0 {
+		return errors.Join(errs...)
+	}
 	return nil
 }
 
