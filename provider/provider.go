@@ -87,7 +87,7 @@ func (p *DnsProvider) Records(ctx context.Context) ([]*endpoint.Endpoint, error)
 	return result, nil
 }
 
-// todo
+// todo mb add context with timeout
 func (p *DnsProvider) ApplyChanges(ctx context.Context, changes *plan.Changes) error {
 	if !changes.HasChanges() {
 		return nil
@@ -391,4 +391,5 @@ func findDiff(target, source *endpoint.Endpoint) endpoint.Targets {
 			res = append(res, t)
 		}
 	}
+	return res
 }
