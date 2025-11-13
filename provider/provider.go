@@ -159,12 +159,14 @@ func (p *DnsProvider) zoneFromDNSNameGetter(ctx context.Context) func(name strin
 	}
 }
 
-func (p *DnsProvider) handleUpdateChanges(ctx context.Context, changes *plan.Changes, getZone func(name string) string) (int, []string) {
+func (p *DnsProvider) handleUpdateChanges(ctx context.Context, changes *plan.Changes, getZone func(name string) string) (int, *errgroup.Group) {
 	logger := log.Logger(ctx)
 	logger.Info("start applying Update changes")
 	defer logger.Info("finish  applying Update changes")
 
-	var deleted int
+	var forUpdate int
+
+	gr, _ := errgroup.WithContext(ctx)
 
 	for _, e := range changes.UpdateNew {
 		zone := getZone(e.DNSName)
@@ -174,10 +176,6 @@ func (p *DnsProvider) handleUpdateChanges(ctx context.Context, changes *plan.Cha
 		}
 
 		rrsetsToDelete := findRecordsToDelete(e, changes.UpdateOld)
-		if len(rrsetsToDelete) == 0 {
-			continue
-		}
-
 		for _, content := range rrsetsToDelete {
 			msg := fmt.Sprintf("remove %s %s %s", e.DNSName, e.RecordType, content)
 			if p.dryRun {
@@ -187,18 +185,45 @@ func (p *DnsProvider) handleUpdateChanges(ctx context.Context, changes *plan.Cha
 			logger.Debug(msg)
 		}
 
-		gr, _ := errgroup.WithContext(ctx)
-		gr.Go(func() error {
-			err := p.client.DeleteRRSetRecord(ctx, zone, e.DNSName, e.RecordType, rrsetsToDelete...)
-			if err != nil {
-				err = fmt.Errorf("failed to delete rrset records: %s", err)
+		rrsetsToCreate := findRecordsToCreate(e, changes.UpdateOld)
+		recordValues := make([]dns.ResourceRecord, 0, len(rrsetsToCreate))
+
+		for _, content := range rrsetsToCreate {
+			msg := fmt.Sprintf("add %s %s %s", e.DNSName, e.RecordType, content)
+			if p.dryRun {
+				logger.WithField(log.DryRunKey, true).Info(msg)
+				continue
 			}
-			logger.Error(err)
-			return err
+			logger.Debug(msg)
+			rr := dns.ResourceRecord{Enabled: true}
+			rr.SetContent(e.RecordType, content)
+			recordValues = append(recordValues, rr)
+		}
+
+		forUpdate += len(rrsetsToDelete) + len(rrsetsToCreate)
+
+		gr.Go(func() error {
+			if len(rrsetsToDelete) > 0 {
+				err := p.client.DeleteRRSetRecord(ctx, zone, e.DNSName, e.RecordType, rrsetsToDelete...)
+				if err != nil {
+					err = fmt.Errorf("failed to delete rrset records: %s", err)
+				}
+				logger.Error(err)
+				return err
+			}
+			if len(rrsetsToCreate) > 0 {
+				err := p.client.AddZoneRRSet(ctx, zone, e.DNSName, e.RecordType, recordValues, int(e.RecordTTL))
+				if err != nil {
+					err = fmt.Errorf("failed to add rrset records: %s", err)
+				}
+				logger.Error(err)
+				return err
+			}
+			return nil
 		})
 	}
 
-	return nil
+	return forUpdate, gr
 }
 
 func findRecordsToDelete(update *endpoint.Endpoint, existingEndpoints []*endpoint.Endpoint) endpoint.Targets {
@@ -213,6 +238,20 @@ func findRecordsToDelete(update *endpoint.Endpoint, existingEndpoints []*endpoin
 		return nil
 	}
 	return findDiff(existing, update)
+}
+
+func findRecordsToCreate(update *endpoint.Endpoint, existingEndpoints []*endpoint.Endpoint) endpoint.Targets {
+	var existing *endpoint.Endpoint
+	for _, ex := range existingEndpoints {
+		if ex.RecordType != update.RecordType || ex.DNSName != update.DNSName {
+			continue
+		}
+		existing = ex
+	}
+	if existing == nil {
+		return nil
+	}
+	return findDiff(update, existing)
 }
 
 // findDiff returns RRSets in target that don't exist in source
