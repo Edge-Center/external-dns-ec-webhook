@@ -22,9 +22,18 @@ const (
 	ENV_DRY_RUN   = "EC_DRY_RUN"
 )
 
+// DnsClient is an interface for test purposes
+type DnsClient interface {
+	AddZoneRRSet(ctx context.Context,
+		zone, recordName, recordType string,
+		values []dns.ResourceRecord, ttl int, opts ...dns.AddZoneOpt) error
+	ZonesWithRecords(ctx context.Context, filters ...func(zone *dns.ZonesFilter)) ([]dns.Zone, error)
+	DeleteRRSetRecord(ctx context.Context, zone, name, recordType string, contents ...string) error
+}
+
 type DnsProvider struct {
 	provider.BaseProvider
-	client *dns.Client
+	client DnsClient
 	dryRun bool
 }
 
