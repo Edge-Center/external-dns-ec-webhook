@@ -162,7 +162,7 @@ func (p *DnsProvider) zoneFromDNSNameGetter(ctx context.Context) func(name strin
 func (p *DnsProvider) handleUpdateChanges(ctx context.Context, changes *plan.Changes, getZone func(name string) string) (int, *errgroup.Group) {
 	logger := log.Logger(ctx)
 	logger.Info("start applying Update changes")
-	defer logger.Info("finish  applying Update changes")
+	defer logger.Info("finish applying Update changes")
 
 	var forUpdate int
 
