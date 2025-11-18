@@ -186,7 +186,7 @@ func InitAPI(p *provider.DnsProvider) *chi.Mux {
 		}
 
 		var endpoints []*endpoint.Endpoint
-		if err = json.NewDecoder(r.Body).Decode(endpoints); err != nil {
+		if err = json.NewDecoder(r.Body).Decode(&endpoints); err != nil {
 			logger.WithField(log.ErrorKey, err).Warning("failed to decode endpoints for adjustment")
 
 			w.Header().Set(HeaderContentType, ContentTypePlainText)
