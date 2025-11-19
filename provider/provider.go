@@ -157,7 +157,7 @@ func (p *DnsProvider) GetDomainFilter(ctx context.Context) *endpoint.DomainFilte
 	logger.Info("start GetDomainFilter")
 	defer logger.Info("finish GetDomainFilter")
 
-	zones, err := p.client.ZonesWithRecords(ctx, nil)
+	zones, err := p.client.ZonesWithRecords(ctx)
 	if err != nil {
 		logger.Errorf("failed to get zones with records: %s", err)
 		return &endpoint.DomainFilter{}
