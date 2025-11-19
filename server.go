@@ -237,7 +237,7 @@ func checkHeaders(w http.ResponseWriter, r *http.Request) error {
 		} else {
 			err = errors.New("'Accept' header is required")
 		}
-		if _, er := fmt.Fprint(w, err); err != nil {
+		if _, er := fmt.Fprint(w, err); er != nil {
 			logWithReqInfo(r).WithField(log.ErrorKey, er).Fatal("got error on writing error message to response writer")
 		}
 		return err
@@ -253,7 +253,7 @@ func checkHeaders(w http.ResponseWriter, r *http.Request) error {
 		} else {
 			err = errors.New("valid media type is required in 'Accept' header")
 		}
-		if _, er := fmt.Fprint(w, err); err != nil {
+		if _, er := fmt.Fprint(w, err); er != nil {
 			logWithReqInfo(r).WithField(log.ErrorKey, er).Fatal("got error on writing error message to response writer")
 		}
 		return err
