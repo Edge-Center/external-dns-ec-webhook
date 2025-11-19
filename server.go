@@ -87,12 +87,12 @@ func InitAPI(p *provider.DnsProvider) *chi.Mux {
 		logger := logWithReqInfo(r)
 		logger.Debug("GET /")
 
-		err := checkHeaders(w, r)
+		/*err := checkHeaders(w, r)
 		if err != nil {
 			logWithReqInfo(r).WithField(log.ErrorKey, err).Error("failed header check")
 			w.WriteHeader(http.StatusBadRequest)
 			return
-		}
+		}*/
 		b, err := p.GetDomainFilter(r.Context()).MarshalJSON()
 		if err != nil {
 			logger.WithField(log.ErrorKey, err).Error("failed to marshal domain filter")
