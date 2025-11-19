@@ -29,5 +29,5 @@ func Trace(ctx context.Context) context.Context {
 
 // Logger provides logger with embedded ctx in it
 func Logger(ctx context.Context) *logrus.Entry {
-	return logrus.StandardLogger().WithContext(ctx)
+	return logrus.StandardLogger().WithContext(ctx).WithField(TraceIDKey, ctx.Value(TraceIDKey))
 }
