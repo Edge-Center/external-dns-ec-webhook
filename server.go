@@ -88,7 +88,7 @@ func InitAPI(p *provider.DnsProvider) *chi.Mux {
 
 		err := checkHeaders(w, r)
 		if err != nil {
-			logWithReqInfo(r).WithField(log.ErrorKey, err).Error("failed header check")
+			logger.WithField(log.ErrorKey, err).Error("failed header check")
 			w.WriteHeader(http.StatusBadRequest)
 			return
 		}
@@ -115,7 +115,7 @@ func InitAPI(p *provider.DnsProvider) *chi.Mux {
 
 		err := checkHeaders(w, r)
 		if err != nil {
-			logWithReqInfo(r).WithField(log.ErrorKey, err).Error("failed header check")
+			logger.WithField(log.ErrorKey, err).Error("failed header check")
 			w.WriteHeader(http.StatusBadRequest)
 			return
 		}
@@ -220,7 +220,7 @@ func InitAPI(p *provider.DnsProvider) *chi.Mux {
 
 func checkHeaders(w http.ResponseWriter, r *http.Request) error {
 	var header string
-	logger := log.Logger(r.Context())
+	logger := logWithReqInfo(r)
 	if r.Method == http.MethodPost {
 		header = r.Header.Get(HeaderContentType)
 	} else {
@@ -256,7 +256,7 @@ func checkHeaders(w http.ResponseWriter, r *http.Request) error {
 			err = errors.New("valid media type is required in 'Accept' header")
 		}
 		if _, writeEr := fmt.Fprint(w, err); writeEr != nil {
-			logWithReqInfo(r).WithField(log.ErrorKey, writeEr).Fatal("got error on writing error message to response writer")
+			logger.WithField(log.ErrorKey, writeEr).Fatal("got error on writing error message to response writer")
 		}
 		return err
 	}
