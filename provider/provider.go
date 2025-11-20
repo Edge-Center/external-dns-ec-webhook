@@ -38,7 +38,7 @@ type DnsProvider struct {
 }
 
 func NewProvider(apiUrl, apiToken string, dryRun bool) (p *DnsProvider, err error) {
-	log.Logger(context.Background()).Infof("init %s provider for %s with token '%s'", ProviderName, apiUrl, apiToken)
+	log.Logger(context.Background()).Infof("init %s provider for %s", ProviderName, apiUrl)
 
 	if apiToken == "" {
 		return nil, errors.New("empty API token, check env var " + ENV_API_TOKEN)
