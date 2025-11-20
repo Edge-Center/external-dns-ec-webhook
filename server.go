@@ -28,7 +28,7 @@ const (
 	ContentTypeAppJson   = "application/json"
 )
 
-var supportedMediaVersions = "application/json"
+var supportedMediaVersion = "application/external.dns.webhook+json;version=1"
 
 type Server struct {
 	*http.Server
@@ -246,7 +246,7 @@ func checkHeaders(w http.ResponseWriter, r *http.Request) error {
 		return err
 	}
 
-	if header != supportedMediaVersions {
+	if header != supportedMediaVersion {
 		w.Header().Set(HeaderContentType, ContentTypePlainText)
 		w.WriteHeader(http.StatusUnsupportedMediaType)
 
