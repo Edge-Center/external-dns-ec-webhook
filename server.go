@@ -172,10 +172,10 @@ func InitAPI(p *provider.DnsProvider) *chi.Mux {
 		}
 		w.WriteHeader(http.StatusNoContent)
 	})
-	r.Post("/adjust_endpoints", func(w http.ResponseWriter, r *http.Request) {
+	r.Post("/adjustendpoints", func(w http.ResponseWriter, r *http.Request) {
 		r = r.WithContext(log.Trace(r.Context()))
 		logger := logWithReqInfo(r)
-		logger.Info("POST /adjust_endpoints")
+		logger.Info("POST /adjustendpoints")
 
 		err := checkHeaders(w, r)
 		if err != nil {
