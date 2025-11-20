@@ -148,7 +148,7 @@ func InitAPI(p *provider.DnsProvider) *chi.Mux {
 			return
 		}
 
-		var changes *plan.Changes
+		changes := &plan.Changes{}
 		if err = json.NewDecoder(r.Body).Decode(changes); err != nil {
 			logger.WithField(log.ErrorKey, err).Warning("failed to decode changes")
 
@@ -180,7 +180,7 @@ func InitAPI(p *provider.DnsProvider) *chi.Mux {
 			return
 		}
 
-		var endpoints []*endpoint.Endpoint
+		endpoints := make([]*endpoint.Endpoint, 0)
 		if err = json.NewDecoder(r.Body).Decode(&endpoints); err != nil {
 			logger.WithField(log.ErrorKey, err).Warning("failed to decode endpoints for adjustment")
 
