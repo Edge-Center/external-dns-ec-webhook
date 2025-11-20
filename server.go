@@ -89,7 +89,6 @@ func InitAPI(p *provider.DnsProvider) *chi.Mux {
 		err := checkHeaders(w, r)
 		if err != nil {
 			logger.WithField(log.ErrorKey, err).Error("failed header check")
-			w.WriteHeader(http.StatusBadRequest)
 			return
 		}
 		b, err := p.GetDomainFilter(r.Context()).MarshalJSON()
@@ -116,7 +115,6 @@ func InitAPI(p *provider.DnsProvider) *chi.Mux {
 		err := checkHeaders(w, r)
 		if err != nil {
 			logger.WithField(log.ErrorKey, err).Error("failed header check")
-			w.WriteHeader(http.StatusBadRequest)
 			return
 		}
 
@@ -147,7 +145,6 @@ func InitAPI(p *provider.DnsProvider) *chi.Mux {
 		err := checkHeaders(w, r)
 		if err != nil {
 			logger.WithField(log.ErrorKey, err).Error("failed header check")
-			w.WriteHeader(http.StatusBadRequest)
 			return
 		}
 
@@ -180,7 +177,6 @@ func InitAPI(p *provider.DnsProvider) *chi.Mux {
 		err := checkHeaders(w, r)
 		if err != nil {
 			logger.WithField(log.ErrorKey, err).Error("failed header check")
-			w.WriteHeader(http.StatusBadRequest)
 			return
 		}
 
