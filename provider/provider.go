@@ -96,6 +96,8 @@ func (p *DnsProvider) Records(ctx context.Context) ([]*endpoint.Endpoint, error)
 	return result, nil
 }
 
+const changesApplicationStepsNumber = 3
+
 // todo mb add context with timeout
 func (p *DnsProvider) ApplyChanges(ctx context.Context, changes *plan.Changes) error {
 	if !changes.HasChanges() {
@@ -124,7 +126,7 @@ func (p *DnsProvider) ApplyChanges(ctx context.Context, changes *plan.Changes) e
 
 	logger = logger.WithField("to_apply", appliedChanges)
 
-	errs := make([]error, 0, 3)
+	errs := make([]error, 0, changesApplicationStepsNumber)
 	err := updateGr.Wait()
 	if err != nil {
 		logger.WithField(log.ErrorKey, err).Error("failed to commit update changes")
