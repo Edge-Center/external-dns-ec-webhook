@@ -25,7 +25,7 @@ const (
 	HeaderVary        = "Vary"
 
 	ContentTypePlainText = "text/plain"
-	ContentTypeAppJson   = "application/json"
+	ContentTypeAppJson   = "application/external.dns.webhook+json;version=1"
 )
 
 var supportedMediaVersion = "application/external.dns.webhook+json;version=1"
