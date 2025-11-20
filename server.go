@@ -58,11 +58,10 @@ func StartServer(p *provider.DnsProvider, addr string) {
 	signal.Notify(sigCh, syscall.SIGHUP, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
 	sig := <-sigCh
 	logger.Infof("shutting down server due to received signal: %v", sig)
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	ctx, _ := context.WithTimeout(context.Background(), 30*time.Second)
 	if err := srv.Shutdown(ctx); err != nil {
 		logger.WithField(log.ErrorKey, err).Error("error shutting down server")
 	}
-	cancel()
 }
 
 // InitAPI will create a router with the following API
