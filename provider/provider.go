@@ -242,16 +242,16 @@ func (p *DnsProvider) sendUpdates(ctx context.Context, zone string, e *endpoint.
 		err := p.client.DeleteRRSetRecord(ctx, zone, e.DNSName, e.RecordType, rrsetsToDelete...)
 		if err != nil {
 			err = fmt.Errorf("failed to delete rrset records: %s", err)
+			logger.Error(err)
 		}
-		logger.Error(err)
 		return err
 	}
 	if len(rrsetValuesToCreate) > 0 && !p.dryRun {
 		err := p.client.AddZoneRRSet(ctx, zone, e.DNSName, e.RecordType, rrsetValuesToCreate, int(e.RecordTTL))
 		if err != nil {
 			err = fmt.Errorf("failed to add rrset records: %s", err)
+			logger.Error(err)
 		}
-		logger.Error(err)
 		return err
 	}
 	return nil
@@ -298,8 +298,8 @@ func (p *DnsProvider) sendDeletes(ctx context.Context, zone string, e *endpoint.
 	err := p.client.DeleteRRSetRecord(ctx, zone, e.DNSName, e.RecordType, e.Targets...)
 	if err != nil {
 		err = fmt.Errorf("failed to delete rrset: %s", err)
+		logger.Error(err)
 	}
-	logger.Error(err)
 	return err
 }
 
@@ -348,8 +348,8 @@ func (p *DnsProvider) sendCreates(ctx context.Context, zone string, e *endpoint.
 	err := p.client.AddZoneRRSet(ctx, zone, e.DNSName, e.RecordType, recordValues, int(e.RecordTTL))
 	if err != nil {
 		err = fmt.Errorf("failed to create rrset: %s", err)
+		logger.Error(err)
 	}
-	logger.Error(err)
 	return err
 }
 
