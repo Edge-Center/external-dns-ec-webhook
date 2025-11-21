@@ -238,7 +238,7 @@ func (p *DnsProvider) handleUpdateChanges(ctx context.Context, changes *plan.Cha
 func (p *DnsProvider) sendUpdates(ctx context.Context, zone string, e *endpoint.Endpoint, rrsetsToDelete endpoint.Targets, rrsetValuesToCreate []dns.ResourceRecord) error {
 	logger := log.Logger(ctx)
 
-	if len(rrsetsToDelete) > 0 {
+	if len(rrsetsToDelete) > 0 && !p.dryRun {
 		err := p.client.DeleteRRSetRecord(ctx, zone, e.DNSName, e.RecordType, rrsetsToDelete...)
 		if err != nil {
 			err = fmt.Errorf("failed to delete rrset records: %s", err)
@@ -246,7 +246,7 @@ func (p *DnsProvider) sendUpdates(ctx context.Context, zone string, e *endpoint.
 		logger.Error(err)
 		return err
 	}
-	if len(rrsetValuesToCreate) > 0 {
+	if len(rrsetValuesToCreate) > 0 && !p.dryRun {
 		err := p.client.AddZoneRRSet(ctx, zone, e.DNSName, e.RecordType, rrsetValuesToCreate, int(e.RecordTTL))
 		if err != nil {
 			err = fmt.Errorf("failed to add rrset records: %s", err)
@@ -283,7 +283,7 @@ func (p *DnsProvider) handleDeleteChanges(ctx context.Context, changes *plan.Cha
 			logger.Debug(msg)
 		}
 
-		if len(e.Targets) > 0 {
+		if len(e.Targets) > 0 && !p.dryRun {
 			gr.Go(func() error {
 				return p.sendDeletes(ctx, zone, e)
 			})
@@ -333,7 +333,7 @@ func (p *DnsProvider) handleCreateChanges(ctx context.Context, changes *plan.Cha
 			recordValues = append(recordValues, rr)
 		}
 
-		if len(e.Targets) > 0 {
+		if len(e.Targets) > 0 && !p.dryRun {
 			gr.Go(func() error {
 				return p.sendCreates(ctx, zone, e, recordValues)
 			})
